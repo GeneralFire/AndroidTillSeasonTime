@@ -40,4 +40,13 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
+
+    // Core functionality
+    implementation 'com.github.kirich1409:android-notification-dsl-core:0.2.1'
+
+    // Extentions to simoplify work
+    implementation 'com.github.kirich1409:android-notification-dsl-extensions:0.2.1'
+
+    // Media Notification DSL
+    implementation 'com.github.kirich1409:android-notification-dsl-media:0.2.1'
 }

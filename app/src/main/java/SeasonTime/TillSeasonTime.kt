@@ -1,6 +1,5 @@
 package SeasonTime
 
-import java.text.SimpleDateFormat
 import java.util.*
 
 class TillSeasonTime {
@@ -8,10 +7,9 @@ class TillSeasonTime {
     // should i use global calendar or get instance in every single method?
     private val calendar: Calendar = Calendar.getInstance()
 
-    fun getCurrentSeason(): SeasonsEnum {
-        val date = Date()
-        return getSeasonByDate(date)
-    }
+    fun getCurrentSeason(): SeasonsEnum = getSeasonByDate(Date())
+
+    fun getNextSeason(season: SeasonsEnum): SeasonsEnum = SeasonsEnum.values()[(season.ordinal + 1) % SeasonsEnum.values().size]
 
     private fun getSeasonByDate(date: Date): SeasonsEnum {
         calendar.setTime(date)
@@ -33,46 +31,69 @@ class TillSeasonTime {
             SeasonsEnum.Fall -> Calendar.SEPTEMBER
         }
     
-    private fun getDateDiff(subtrahend: Date, subtractor: Date): Long = subtrahend.getTime() - subtractor.getTime()
+    private fun getDateDiff(subtrahend: Date, subtractor: Date): Long = subtrahend.time - subtractor.time
 
-    private fun getTimeTillNearestSeason(targetSeason: SeasonsEnum, currentTime: Date): Long {
-        val targetMonth: Int = getSeasonFirstMonth(targetSeason)
-
+    private fun getNearestSeasonDate(season: SeasonsEnum, initialTime: Date): Date {
+        val fistMonth: Int = getSeasonFirstMonth(season)
         val currentDateCal = Calendar.getInstance()
-        currentDateCal.setTime(currentTime)
-//        println("currentDateCal is ${SimpleDateFormat("HH:mm:ss dd MMMM YYYY").format(currentDateCal.getTime())}")
-//        Log.d("TillSeasonTime", "nextSeasonCal is ${SimpleDateFormat("dd:HH:mm:ss MMMM YYYY").format(currentDateCal.getTime())}")
+        currentDateCal.setTime(initialTime)
 
         val nextSeasonCal = Calendar.getInstance()
-        nextSeasonCal.set(
-            // lol, ternary operator?
-            currentDateCal.get(Calendar.YEAR) + if (currentDateCal.get(Calendar.MONTH) > targetMonth) 1  else 0,
-            targetMonth,
-            nextSeasonCal.getActualMinimum(Calendar.DAY_OF_MONTH),
-            nextSeasonCal.getActualMinimum(Calendar.HOUR_OF_DAY),
-            nextSeasonCal.getActualMinimum(Calendar.MINUTE),
-            nextSeasonCal.getActualMinimum(Calendar.SECOND),
-        )
-//         println("nextSeasonCal is ${SimpleDateFormat("HH:mm:ss dd MMMM YYYY").format(nextSeasonCal.getTime())}")
-//        Log.d("TillSeasonTime", "nextSeasonCal is ${nextSeasonCal.toString()}")
-        return getDateDiff(Date(nextSeasonCal.timeInMillis), Date(currentDateCal.timeInMillis))
+        val nextSeasonMonth = currentDateCal.get(Calendar.MONTH)
+        with(nextSeasonCal) {
+            set(
+                currentDateCal.get(Calendar.YEAR) + if (nextSeasonMonth >= fistMonth) 1  else 0,
+                fistMonth,
+                getActualMinimum(Calendar.DAY_OF_MONTH),
+                getActualMinimum(Calendar.HOUR_OF_DAY),
+                getActualMinimum(Calendar.MINUTE),
+                getActualMinimum(Calendar.SECOND),
+            )
+        }
+
+        return Date(nextSeasonCal.timeInMillis)
     }
 
-    fun getFormatedTimeTillSeason(targetSeason: SeasonsEnum, currentTime: Date? = null): String {
-        val timeArg = currentTime?: Date()
-        val delta: Long = getTimeTillNearestSeason(targetSeason, timeArg)
+    private fun getTimeTillNextSeason(season: SeasonsEnum, initialTime: Date): Long {
+        val currentDateCal = Calendar.getInstance()
+        currentDateCal.setTime(initialTime)
+
+        val nextSeasonDate = getNearestSeasonDate(season, initialTime)
+
+        return getDateDiff(nextSeasonDate, Date(currentDateCal.timeInMillis))
+    }
+
+    fun getTimeTillSeasonAsString(season: SeasonsEnum, initialTime: Date? = null): String {
+        val delta: Long = getTimeTillNextSeason(season, initialTime?: Date())
         val seconds: Long = delta / 1000
         val minutes = seconds / 60
         val hours = minutes / 60
         val days = hours / 24
         return days.toString() + ":" + hours % 24 + ":" + minutes % 60 + ":" + seconds % 60
     }
-}
 
-//fun main() {
-//    println("Hello, World!")
-//    val date = Date()
-//
-//    val a = TillSeasonTime()
-//    println(a.getFormatedTimeTillSeason(SeasonsEnum.Spring, date))
-//}
+    private fun getTotalSeasonTimeByDate(date: Date): Long {
+        // (date of next season - 3 month).getTime()
+        val nextSeason = getNextSeason(getSeasonByDate(date))
+        val nextSeasonData = getNearestSeasonDate(nextSeason, date)
+
+        calendar.setTime(nextSeasonData)
+        with(calendar) {
+            set(Calendar.MONTH, get(Calendar.MONTH) - 3)
+            set(Calendar.DAY_OF_MONTH, getActualMinimum(Calendar.DAY_OF_MONTH))
+            set(Calendar.HOUR, getActualMinimum(Calendar.HOUR))
+            set(Calendar.MINUTE, getActualMinimum(Calendar.MINUTE))
+            set(Calendar.SECOND, getActualMinimum(Calendar.SECOND))
+            set(Calendar.MILLISECOND, getActualMinimum(Calendar.MILLISECOND))
+        }
+
+        return nextSeasonData.time - Date(calendar.timeInMillis).time
+    }
+
+    fun getDateSeasonProgress(initialTime: Date? = null): Double {
+        val totalSeasonTime: Long = getTotalSeasonTimeByDate(initialTime?:Date())
+        val nextSeason = getNextSeason(getSeasonByDate(initialTime?:Date()))
+        val timeTillNextSeason = getTimeTillNextSeason(nextSeason, initialTime?: Date())
+        return 1 - timeTillNextSeason.toDouble() / totalSeasonTime
+    }
+}
